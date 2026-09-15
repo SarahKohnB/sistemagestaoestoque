@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Cadastro de Produtos</title>
+    <link rel="stylesheet" href="/estilo.css">
+</head>
+
+<body>
+
+    <h1>Cadastro de Produtos</h1>
+
+    <p>
+        <a href="/principal">Voltar para o menu principal</a>
+    </p>
+
+    <hr>
+
+    <h2>Pesquisar produto</h2>
+
+    <form action="/produtos" method="GET">
+
+        <input
+            type="text"
+            name="busca"
+            placeholder="Digite o nome ou categoria"
+        >
+
+        <button type="submit">Pesquisar</button>
+
+    </form>
+
+    <hr>
+
+    <h2>Cadastrar novo produto</h2>
+
+    <form action="/cadastrarProduto" method="POST">
+
+        <label>Nome do produto:</label>
+        <br>
+        <input type="text" name="nome">
+
+        <br><br>
+
+        <label>Categoria:</label>
+        <br>
+        <input type="text" name="categoria">
+
+        <br><br>
+
+        <label>Quantidade:</label>
+        <br>
+        <input type="number" name="quantidade" min="0">
+
+        <br><br>
+
+        <label>Estoque mínimo:</label>
+        <br>
+        <input type="number" name="estoque_minimo" min="0">
+
+        <br><br>
+
+        <button type="submit">Cadastrar produto</button>
+
+    </form>
+
+    <hr>
+
+    <h2>Produtos cadastrados</h2>
+
+    {{MENSAGEM}}
+
+    <table border="1">
+
+        <tr>
+            <th>ID</th>
+            <th>Nome</th>
+            <th>Categoria</th>
+            <th>Quantidade</th>
+            <th>Estoque mínimo</th>
+            <th>Ações</th>
+        </tr>
+
+        {{PRODUTOS}}
+
+    </table>
+
+</body>
+
+</html>

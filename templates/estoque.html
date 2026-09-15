@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Gestão de Estoque</title>
+    <link rel="stylesheet" href="/estilo.css">
+</head>
+
+<body>
+
+    <h1>Gestão de Estoque</h1>
+
+    <p>
+        <a href="/principal">Voltar para o menu principal</a>
+    </p>
+
+    <hr>
+
+    <h2>Movimentação de Estoque</h2>
+
+    <form action="/movimentarEstoque" method="POST">
+
+        <label>Produto:</label>
+        <br>
+
+        <select name="produto_id">
+
+            {{PRODUTOS}}
+
+        </select>
+
+        <br><br>
+
+        <label>Tipo de movimentação:</label>
+        <br>
+
+        <input
+            type="radio"
+            name="tipo"
+            value="ENTRADA"
+            checked
+        >
+
+        Entrada
+
+        <br>
+
+        <input
+            type="radio"
+            name="tipo"
+            value="SAIDA"
+        >
+
+        Saída
+
+        <br><br>
+
+        <label>Quantidade:</label>
+        <br>
+
+        <input
+            type="number"
+            name="quantidade"
+            min="1"
+        >
+
+        <br><br>
+
+        <label>Data da movimentação:</label>
+        <br>
+
+        <input
+            type="date"
+            name="data_movimento"
+        >
+
+        <br><br>
+
+        <button type="submit">
+            Registrar movimentação
+        </button>
+
+    </form>
+
+    <hr>
+
+    <h2>Estoque atual</h2>
+
+    {{MENSAGEM}}
+
+    <table border="1">
+
+        <tr>
+            <th>ID</th>
+            <th>Produto</th>
+            <th>Categoria</th>
+            <th>Quantidade</th>
+            <th>Estoque mínimo</th>
+        </tr>
+
+        {{ESTOQUE}}
+
+    </table>
+
+    <hr>
+
+    <h2>Histórico de movimentações</h2>
+
+    <table border="1">
+
+        <tr>
+            <th>Produto</th>
+            <th>Tipo</th>
+            <th>Quantidade</th>
+            <th>Responsável</th>
+            <th>Data</th>
+        </tr>
+
+        {{HISTORICO}}
+
+    </table>
+
+</body>
+
+</html>
