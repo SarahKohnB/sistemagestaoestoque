@@ -28,3 +28,9 @@ No terminal, digite:
 
 ```bash
 python app.py
+
+## Como visualizar os documentos no próprio VScode
+
+### 1. Instalar a extensão:
+
+**Office Viewer**
