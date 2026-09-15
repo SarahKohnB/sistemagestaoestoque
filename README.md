@@ -12,7 +12,7 @@ Sistema web desenvolvido para controle de estoque de uma indústria de embalagen
 
 ## Como visualizar os documentos no VScode
 
-### 1. Instalar a extensão:
+### Instalar a extensão:
 
 **Office Viewer**
 
