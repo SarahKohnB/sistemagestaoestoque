@@ -10,6 +10,12 @@ Sistema web desenvolvido para controle de estoque de uma indústria de embalagen
 - CSS
 - Visual Studio Code
 
+## Como visualizar os documentos no VScode
+
+### 1. Instalar a extensão:
+
+**Office Viewer**
+
 ## Como executar o sistema
 
 ### 1. Abrir o projeto
@@ -29,8 +35,3 @@ No terminal, digite:
 ```bash
 python app.py
 
-## Como visualizar os documentos no próprio VScode
-
-### 1. Instalar a extensão:
-
-**Office Viewer**
