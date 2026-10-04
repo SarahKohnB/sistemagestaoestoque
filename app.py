@@ -16,13 +16,11 @@ PORTA = 8080
 #   (coluna no banco, rótulo na tela, tipo)
 #   tipo: "text" ou "number"
 # =========================================================
-TABELA = "produtos" # 1 alteraçao
+TABELA = "produtos"
 
 CAMPOS = [
     ("nome", "Nome", "text"),
     ("categoria", "Categoria", "text"),
-    # novo ex- ("tamanho", "Tamanho", "text"),
-    # novo ex- ("cor", "Cor", "text"), 
     ("quantidade", "Quantidade", "number"),
     ("estoque_minimo", "Estoque mínimo", "number"),
 ]
@@ -89,7 +87,7 @@ def criar_banco():
         );
     """)
 
-    # ----- dados iniciais 5 ou 6 alteraçao, acrescentar as colunas no select, pesquise select no ctrlf para alterar tudo onde é necessário. Exemplo: SELECT id, nome, categoria, tamanho, cor, quantidade, estoque_minimo ...-----
+    # ----- dados iniciais -----
     if banco.execute("SELECT COUNT(*) FROM usuarios").fetchone()[0] == 0:
         banco.executemany(
             "INSERT INTO usuarios (nome, usuario, senha) VALUES (?, ?, ?)",
@@ -131,18 +129,14 @@ def esc(valor):
 
 
 def render(pagina, titulo="Controle de Estoque", refresh="", **dados):
-    """Lê templates/<pagina>.html, troca {{CHAVE}} pelos dados
-    e coloca tudo dentro de templates/base.html."""
-    with open(f"templates/{pagina}.html", encoding="utf-8") as arquivo:
-        conteudo = arquivo.read()
+    """Pega o HTML em PAGINAS (no final do arquivo), troca {{CHAVE}}
+    pelos dados e coloca tudo dentro da página "base"."""
+    conteudo = PAGINAS[pagina]
 
     for chave, valor in dados.items():
         conteudo = conteudo.replace("{{" + chave + "}}", str(valor))
 
-    with open("templates/base.html", encoding="utf-8") as arquivo:
-        base = arquivo.read()
-
-    base = base.replace("{{TITULO}}", titulo).replace("{{REFRESH}}", refresh)
+    base = PAGINAS["base"].replace("{{TITULO}}", titulo).replace("{{REFRESH}}", refresh)
     return base.replace("{{CONTEUDO}}", conteudo)
 
 
@@ -308,12 +302,12 @@ def excluir_produto(req, d):
     req.redirecionar("/produtos")
 
 
-# ----- estoque  7 alteraçao eu acho - caso eu acrescentar mais colunas como tamanho e cor, devo mudar os numero dentro de p[3] e p[4] e deixar 5,6 (sempre contar do 0 a partir do id)-----
+# ----- estoque -----
 def pagina_estoque(req, d):
-    produtos = consultar("""
-        SELECT id, nome, categoria, quantidade, estoque_minimo
-        FROM produtos ORDER BY nome ASC
-    """)
+    # As colunas vêm de CAMPOS, na mesma ordem. Posições (começa em 0):
+    # p[0] = id, p[1] = 1º campo de CAMPOS, p[2] = 2º campo, e assim por diante.
+    produtos = consultar(
+        f"SELECT id, {', '.join(COLUNAS)} FROM {TABELA} ORDER BY {COLUNAS[0]} ASC")
 
     historico = consultar("""
         SELECT produtos.nome, movimentacoes.tipo, movimentacoes.quantidade,
@@ -329,6 +323,8 @@ def pagina_estoque(req, d):
 
     linhas_estoque = ""
     for p in produtos:
+        # ALTERAR AQUI se mudar CAMPOS: p[3] = quantidade, p[4] = estoque_minimo
+        # (ex.: com "tamanho" e "cor" a mais, vira p[5] < p[6])
         classe = " class='alerta'" if p[3] < p[4] else ""
         linhas_estoque += linha(p, classe=classe)
 
@@ -337,8 +333,11 @@ def pagina_estoque(req, d):
         tipo = "Entrada" if m[1] == "ENTRADA" else "Saída"
         linhas_historico += linha((m[0], tipo, m[2], m[3], m[4]))
 
+    cabecalhos = "".join(f"<th>{r}</th>" for r in ["ID"] + [c[1] for c in CAMPOS])
+
     req.enviar_html(render("estoque", titulo="Gestão de Estoque",
                            OPCOES=opcoes, HOJE=date.today().isoformat(),
+                           CABECALHOS_ESTOQUE=cabecalhos,
                            LINHAS_ESTOQUE=linhas_estoque,
                            LINHAS_HISTORICO=linhas_historico))
 
@@ -509,6 +508,164 @@ class Servidor(BaseHTTPRequestHandler):
 
 
 # =========================================================
+# PÁGINAS (HTML de cada tela)
+# {{ALGO}} é um espaço que o Python preenche em render().
+# =========================================================
+PAGINAS = {}
+
+PAGINAS["base"] = """
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <title>{{TITULO}}</title>
+    {{REFRESH}}
+    <link rel="stylesheet" href="/estilo.css">
+</head>
+<body>
+{{CONTEUDO}}
+</body>
+</html>
+"""
+
+PAGINAS["login"] = """
+<div class="login-container">
+    <h1>Controle de Estoque</h1>
+    <p>Entre no sistema</p>
+
+    <form action="/login" method="POST">
+        <label>Usuário:</label><br>
+        <input type="text" name="usuario"><br><br>
+
+        <label>Senha:</label><br>
+        <input type="password" name="senha"><br><br>
+
+        <button type="submit">Entrar</button>
+    </form>
+
+    <p>Usuário de teste: admin</p>
+    <p>Senha: 123</p>
+</div>
+"""
+
+PAGINAS["principal"] = """
+<div class="menu">
+    <h1>Sistema de Controle de Estoque</h1>
+    <p class="boas-vindas">Bem-vindo, <strong>{{NOME_USUARIO}}</strong>!</p>
+
+    <div class="menu-opcoes">
+        <div class="menu-card">
+            <h2>📦 Produtos</h2>
+            <p>Cadastre, pesquise, edite e exclua produtos.</p>
+            <a href="/produtos">Acessar produtos</a>
+        </div>
+
+        <div class="menu-card">
+            <h2>📊 Estoque</h2>
+            <p>Registre entradas, saídas e consulte o histórico.</p>
+            <a href="/estoque">Acessar estoque</a>
+        </div>
+    </div>
+
+    <div class="sair">
+        <a href="/logout">Sair do sistema</a>
+    </div>
+</div>
+"""
+
+PAGINAS["produtos"] = """
+<h1>Cadastro de Produtos</h1>
+<p><a href="/principal">Voltar para o menu principal</a></p>
+<hr>
+
+<h2>Pesquisar produto</h2>
+<form action="/produtos" method="GET">
+    <input type="text" name="busca" placeholder="Digite o nome ou categoria" value="{{BUSCA}}">
+    <button type="submit">Pesquisar</button>
+</form>
+<hr>
+
+<h2>Cadastrar novo produto</h2>
+<form action="/cadastrarProduto" method="POST">
+    {{CAMPOS_FORM}}
+    <button type="submit">Cadastrar produto</button>
+</form>
+<hr>
+
+<h2>Produtos cadastrados</h2>
+<table>
+    <tr>{{CABECALHOS}}</tr>
+    {{LINHAS}}
+</table>
+"""
+
+PAGINAS["editar"] = """
+<h1>Editar Produto</h1>
+
+<form action="/atualizarProduto" method="POST">
+    <input type="hidden" name="id" value="{{ID}}">
+    {{CAMPOS_FORM}}
+    <button type="submit">Salvar alterações</button>
+</form>
+
+<p><a href="/produtos">Voltar para produtos</a></p>
+"""
+
+PAGINAS["estoque"] = """
+<h1>Gestão de Estoque</h1>
+<p><a href="/principal">Voltar para o menu principal</a></p>
+<hr>
+
+<h2>Movimentação de Estoque</h2>
+<form action="/movimentarEstoque" method="POST">
+    <label>Produto:</label><br>
+    <select name="produto_id">
+        {{OPCOES}}
+    </select>
+    <br><br>
+
+    <label>Tipo de movimentação:</label><br>
+    <input type="radio" name="tipo" value="ENTRADA" checked> Entrada<br>
+    <input type="radio" name="tipo" value="SAIDA"> Saída
+    <br><br>
+
+    <label>Quantidade:</label><br>
+    <input type="number" name="quantidade" min="1">
+    <br><br>
+
+    <label>Data da movimentação:</label><br>
+    <input type="date" name="data_movimento" value="{{HOJE}}">
+    <br><br>
+
+    <button type="submit">Registrar movimentação</button>
+</form>
+<hr>
+
+<h2>Estoque atual</h2>
+<table>
+    <tr>{{CABECALHOS_ESTOQUE}}</tr>
+    {{LINHAS_ESTOQUE}}
+</table>
+<hr>
+
+<h2>Histórico de movimentações</h2>
+<table>
+    <tr>
+        <th>Produto</th><th>Tipo</th><th>Quantidade</th><th>Responsável</th><th>Data</th>
+    </tr>
+    {{LINHAS_HISTORICO}}
+</table>
+"""
+
+PAGINAS["mensagem"] = """
+<div class="{{CLASSE}}">
+    <h1>{{TITULO_MSG}}</h1>
+    {{TEXTOS}}
+    <p>Você será redirecionado.</p>
+</div>
+"""
+
+# =========================================================
 # INICIAR
 # =========================================================
 if __name__ == "__main__":
@@ -520,14 +677,22 @@ if __name__ == "__main__":
     HTTPServer(("localhost", PORTA), Servidor).serve_forever()
 
 # =========================================================
-# ANOTAÇÕES EXTRAS - SE A PROVA PEDIR PREÇO (campo decimal)
+# ANOTAÇÕES EXTRAS - COMO ADAPTAR O SISTEMA NA PROVA (apagar a pasta templates)
 # =========================================================
-# São 4 alterações: 3 no Python (CAMPOS, validar_campos, campos_form)
-# e 1 no SQL (CREATE TABLE).
-# SEMPRE apagar o arquivo .db antes de rodar, senão o banco não atualiza.
+# REGRAS GERAIS (valem para tudo abaixo):
+#  - SEMPRE apagar o arquivo .db antes de rodar, senão o banco não atualiza.
+#  - Rodar o sistema depois de CADA passo, para achar o erro logo.
+#  - A ordem dos campos na lista CAMPOS é a ordem das colunas nas telas.
+#  - Os formulários, as tabelas, o INSERT, o UPDATE e a pesquisa se
+#    adaptam sozinhos a partir da lista CAMPOS (lá no topo do arquivo).
+#
+# =========================================================
+# PARTE A - ADICIONAR PREÇO (campo decimal)
+# =========================================================
+# São 4 alterações: CAMPOS, CREATE TABLE, validar_campos e campos_form.
 #
 # ---------------------------------------------------------
-# 1) CAMPOS (topo do arquivo): adicionar o preço NO FIM da lista
+# A1) CAMPOS (topo do arquivo): adicionar o preço NO FIM da lista
 # ---------------------------------------------------------
 # CAMPOS = [
 #     ("nome", "Nome", "text"),
@@ -537,20 +702,27 @@ if __name__ == "__main__":
 #     ("preco", "Preço", "decimal"),      # novo
 # ]
 #
-# ATENÇÃO: com o preço no FIM, o p[3] < p[4] da pagina_estoque() NÃO muda.
-# Só mudar (para p[4] < p[5]) se o preço for colocado ANTES de "quantidade".
+# ATENÇÃO: com o preço no FIM, o "p[3] < p[4]" da pagina_estoque()
+# NÃO muda. Só mudar se o preço for colocado ANTES de "quantidade".
 #
 # ---------------------------------------------------------
-# 2) SQL - criar_banco(): adicionar a coluna no CREATE TABLE
+# A2) SQL - criar_banco(): adicionar a coluna no CREATE TABLE
 # ---------------------------------------------------------
-# (cuidado com a VÍRGULA depois do DEFAULT 0 do estoque_minimo)
+# Ctrl+F: "CREATE TABLE IF NOT EXISTS produtos"
+# Cuidado com a VÍRGULA depois do DEFAULT 0 do estoque_minimo:
+#
 #             estoque_minimo INTEGER NOT NULL DEFAULT 0,
 #             preco REAL NOT NULL DEFAULT 0
 #
+# (REAL e não INTEGER, para aceitar centavos. O DEFAULT 0 faz os
+#  3 produtos de exemplo continuarem funcionando sem informar preço.)
+#
 # ---------------------------------------------------------
-# 3) validar_campos(): aceitar número com casa decimal
+# A3) validar_campos(): aceitar número com casa decimal
 # ---------------------------------------------------------
+# Ctrl+F: "def validar_campos"
 # Trocar o bloco do "if tipo == "number":" por:
+#
 #         if tipo in ("number", "decimal"):
 #             try:
 #                 if tipo == "number":
@@ -560,10 +732,15 @@ if __name__ == "__main__":
 #             except ValueError:
 #                 return None, f"O campo {rotulo} deve ser um número."
 #
+# (o replace troca vírgula por ponto, porque o Python só entende o
+#  ponto: "49,90" vira "49.90")
+#
 # ---------------------------------------------------------
-# 4) campos_form() (Ctrl+F "def campos_form"): o campo precisa de step
+# A4) campos_form(): o campo precisa do step="0.01"
 # ---------------------------------------------------------
-# Dentro do for, trocar a linha "minimo = ..." e o "texto += (...)" por:
+# Ctrl+F: "def campos_form"
+# Dentro do for, apagar a linha "minimo = ..." e trocar o "texto += (...)" por:
+#
 #         if tipo == "text":
 #             atributos = 'type="text"'
 #         elif tipo == "number":
@@ -574,27 +751,24 @@ if __name__ == "__main__":
 #         texto += (f'<label>{rotulo}:</label><br>'
 #                   f'<input {atributos} name="{coluna}" value="{valor}">'
 #                   f'<br><br>')
-
-
-
-
-
-
+#
+# (sem o step, o navegador só aceita número inteiro e recusa 49,90.
+#  Sem esta alteração o campo vira uma caixa de texto comum)
+#
+# OBS: o preço aparece na tabela como 49.9 (e não 49,90). Funciona,
+# só não tem formatação em reais.
+#
 # =========================================================
-# ANOTAÇÕES EXTRAS - SE A PROVA PEDIR CAMPOS NOVOS DE TEXTO
-# (exemplo: tema roupas, com TAMANHO e COR)
+# PARTE B - ADICIONAR CAMPOS DE TEXTO (ex.: TAMANHO e COR, tema roupas)
 # =========================================================
-# São 3 alterações: 2 no Python (CAMPOS e o p[3]/p[4] da pagina_estoque)
-# e 1 no SQL (CREATE TABLE).
-# Campos de TEXTO não precisam mexer em validar_campos() nem em campos_form(),
+# Campos de TEXTO não mexem em validar_campos() nem em campos_form(),
 # porque o tipo "text" já é tratado nas duas.
-# SEMPRE apagar o arquivo .db antes de rodar, senão o banco não atualiza.
+# São 3 alterações: CAMPOS, CREATE TABLE e o p[3]/p[4] da pagina_estoque.
 #
 # ---------------------------------------------------------
-# 1) CAMPOS (topo do arquivo): adicionar os campos novos
+# B1) CAMPOS: adicionar os campos novos
 # ---------------------------------------------------------
-# A ORDEM da lista é a ordem das colunas nas telas.
-# Aqui coloquei depois de "categoria" e ANTES de "quantidade":
+# Colocando depois de "categoria" e ANTES de "quantidade":
 #
 # CAMPOS = [
 #     ("nome", "Nome", "text"),
@@ -606,45 +780,156 @@ if __name__ == "__main__":
 # ]
 #
 # ---------------------------------------------------------
-# 2) SQL - criar_banco(): adicionar as colunas no CREATE TABLE
+# B2) SQL - criar_banco(): adicionar as colunas no CREATE TABLE
 # ---------------------------------------------------------
-# Colocar dentro do CREATE TABLE IF NOT EXISTS produtos, depois de categoria:
+# Ctrl+F: "CREATE TABLE IF NOT EXISTS produtos"
+# Colocar depois de categoria:
 #
 #             categoria TEXT NOT NULL,
 #             tamanho TEXT NOT NULL DEFAULT 'M',
 #             cor TEXT NOT NULL DEFAULT 'Preto',
 #
-# IMPORTANTE: o DEFAULT é necessário! Os 3 produtos de exemplo (INSERT mais
-# abaixo, em criar_banco) não informam tamanho nem cor. Sem o DEFAULT, o
-# programa dá erro ao criar o banco. (Se preferir, tirar o DEFAULT e incluir
-# tamanho e cor no INSERT dos produtos de exemplo.)
+# O DEFAULT é NECESSÁRIO: os produtos de exemplo (INSERT mais abaixo,
+# em criar_banco) não informam tamanho nem cor. Sem o DEFAULT dá erro
+# ao criar o banco. (Alternativa: tirar o DEFAULT e incluir tamanho e
+# cor no INSERT dos produtos de exemplo.)
 # Cuidado com as VÍRGULAS no fim de cada linha.
 #
 # ---------------------------------------------------------
-# 3) pagina_estoque(): ajustar o alerta (p[3] e p[4])
+# B3) pagina_estoque(): ajustar o alerta (p[3] e p[4])
 # ---------------------------------------------------------
-# Ctrl+F e procurar por "ALTERAR AQUI".
-# Com tamanho e cor ANTES de quantidade, as posições mudam:
+# Ctrl+F: "ALTERAR AQUI"
+# Com tamanho e cor ANTES de quantidade, as posições mudam
+# (a contagem começa em 0, e o id é sempre p[0]):
 #     p[0]=id  p[1]=nome  p[2]=categoria  p[3]=tamanho  p[4]=cor
 #     p[5]=quantidade  p[6]=estoque_minimo
-# Então trocar:
+# Trocar:
 #         classe = " class='alerta'" if p[3] < p[4] else ""
 # por:
 #         classe = " class='alerta'" if p[5] < p[6] else ""
 #
-# Se ESQUECER disso: erro ao abrir a tela de estoque (compara texto com
-# número) ou alerta aparecendo nas linhas erradas.
+# Se ESQUECER: erro ao abrir a tela de estoque (compara texto com
+# número) ou alerta nas linhas erradas.
 #
-# ATALHO SEM RISCO: se colocar tamanho e cor no FIM da lista CAMPOS (depois
-# de estoque_minimo), o p[3] < p[4] NÃO muda. Só as colunas aparecem numa
-# ordem menos natural nas tabelas.
+# ATALHO SEM RISCO: colocar tamanho e cor no FIM da lista CAMPOS
+# (depois de estoque_minimo). Aí o p[3] < p[4] não muda.
 #
-# SE A PROVA PEDIR PREÇO JUNTO: colocar o preço SEMPRE no fim de CAMPOS.
-# Assim o p[5] < p[6] continua valendo.
+# SE A PROVA PEDIR PREÇO JUNTO COM TAMANHO E COR: colocar o preço
+# SEMPRE no fim de CAMPOS. Assim o p[5] < p[6] continua valendo.
+#
+# =========================================================
+# PARTE C - TROCAR OS TEXTOS DA TELA (tema novo, ex.: "Roupas")
+# =========================================================
+# O HTML de todas as telas está no FINAL do arquivo, na seção
+# "PÁGINAS (HTML de cada tela)". Textos como "Cadastro de Produtos",
+# "Pesquisar produto", "Cadastrar produto", "Estoque" ficam lá.
+# Outros textos estão nas funções (ex.: o confirm "Deseja realmente
+# excluir este produto?" e os títulos nos render(...)).
+#
+# Usar Ctrl+Shift+H (substituir em todos os arquivos) trocando só os
+# TEXTOS que aparecem na tela.
+# NÃO trocar o "produtos" que é nome de tabela, de rota ("/produtos")
+# ou de função, senão o sistema para de funcionar.
+#
+# O placeholder da pesquisa ("Digite o nome ou categoria") também
+# vale ajustar: a pesquisa busca em TODOS os campos de texto do CAMPOS.
+
+
+# =========================================================
+# PARTE D - TAMANHO + COR + PREÇO JUNTOS (tema roupas completo)
+# =========================================================
+# Testado: funciona. São 5 alterações, nesta ordem.
+# Rodar o sistema depois de cada passo. Lembrar de apagar o .db.
 #
 # ---------------------------------------------------------
-# 4) OPCIONAL - textos dos templates
+# D1) CAMPOS (topo do arquivo)
 # ---------------------------------------------------------
-# Trocar "Produtos", "Cadastro de Produtos" etc. pelo tema novo
-# (ex.: "Roupas"): Ctrl+Shift+H no VS Code troca em todos os arquivos.
-# As tabelas e os formulários já mostram Tamanho e Cor sozinhos.
+# Tamanho e cor ANTES de quantidade. Preço por ÚLTIMO.
+#
+# CAMPOS = [
+#     ("nome", "Nome", "text"),
+#     ("categoria", "Categoria", "text"),
+#     ("tamanho", "Tamanho", "text"),            # novo
+#     ("cor", "Cor", "text"),                    # novo
+#     ("quantidade", "Quantidade", "number"),
+#     ("estoque_minimo", "Estoque mínimo", "number"),
+#     ("preco", "Preço", "decimal"),             # novo
+# ]
+#
+# ---------------------------------------------------------
+# D2) SQL - criar_banco(): CREATE TABLE
+# ---------------------------------------------------------
+# Ctrl+F: "CREATE TABLE IF NOT EXISTS produtos"
+# A ORDEM das colunas aqui não precisa ser igual à do CAMPOS, mas
+# o nome de cada coluna tem que ser IGUAL ao do CAMPOS.
+# Cuidado com as VÍRGULAS (a última coluna não leva vírgula):
+#
+#             categoria TEXT NOT NULL,
+#             tamanho TEXT NOT NULL DEFAULT 'M',
+#             cor TEXT NOT NULL DEFAULT 'Preto',
+#             quantidade INTEGER NOT NULL DEFAULT 0,
+#             estoque_minimo INTEGER NOT NULL DEFAULT 0,
+#             preco REAL NOT NULL DEFAULT 0
+#
+# (os DEFAULT são necessários: os produtos de exemplo, mais abaixo
+#  em criar_banco, não informam tamanho, cor nem preço)
+#
+# ---------------------------------------------------------
+# D3) validar_campos(): aceitar decimal
+# ---------------------------------------------------------
+# Ctrl+F: "def validar_campos"
+# Trocar o bloco do "if tipo == "number":" por:
+#
+#         if tipo in ("number", "decimal"):
+#             try:
+#                 if tipo == "number":
+#                     valor = int(valor)
+#                 else:
+#                     valor = float(valor.replace(",", "."))
+#             except ValueError:
+#                 return None, f"O campo {rotulo} deve ser um número."
+#
+# ---------------------------------------------------------
+# D4) campos_form(): step="0.01" para o preço
+# ---------------------------------------------------------
+# Ctrl+F: "def campos_form"
+# Dentro do for, apagar a linha "minimo = ..." e trocar o "texto += (...)" por:
+#
+#         if tipo == "text":
+#             atributos = 'type="text"'
+#         elif tipo == "number":
+#             atributos = 'type="number" min="0"'
+#         else:  # decimal
+#             atributos = 'type="number" min="0" step="0.01"'
+#
+#         texto += (f'<label>{rotulo}:</label><br>'
+#                   f'<input {atributos} name="{coluna}" value="{valor}">'
+#                   f'<br><br>')
+#
+# ---------------------------------------------------------
+# D5) pagina_estoque(): o alerta passa a ser p[5] e p[6]
+# ---------------------------------------------------------
+# Ctrl+F: "ALTERAR AQUI"
+# Posições (contagem começa em 0):
+#     p[0]=id  p[1]=nome  p[2]=categoria  p[3]=tamanho  p[4]=cor
+#     p[5]=quantidade  p[6]=estoque_minimo  p[7]=preco
+# Trocar:
+#         classe = " class='alerta'" if p[3] < p[4] else ""
+# por:
+#         classe = " class='alerta'" if p[5] < p[6] else ""
+#
+# POR QUE o preço fica no fim: ele vem depois de estoque_minimo,
+# então não desloca p[5] e p[6].
+#
+# ---------------------------------------------------------
+# CONFERÊNCIA FINAL (se algo der errado)
+# ---------------------------------------------------------
+#  - Erro "no such column" ou "has no column": esqueceu de apagar o .db,
+#    ou o nome da coluna no CREATE TABLE está diferente do CAMPOS.
+#  - Erro de sintaxe SQL ao iniciar: vírgula faltando ou sobrando no
+#    CREATE TABLE.
+#  - Erro ao abrir a tela de estoque, ou alerta nas linhas erradas:
+#    o p[5] < p[6] não foi ajustado (D5).
+#  - Campo de preço aparece como caixa de texto, ou recusa 49,90:
+#    esqueceu o campos_form() (D4).
+#  - Preço dá "deve ser um número": esqueceu o validar_campos() (D3).
